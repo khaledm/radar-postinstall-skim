@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "EnvironmentName": "DEV",
+  "GMSInUse": "TEST\\SVRPPRRDRLDEV01$",
+  "Components": [
+    {
+      "displayName": "Management Server",
+      "expectedServiceName": "RadarManagementServer",
+      "expectedInstallPath": "C:/Program Files/Radar/ManagementServer",
+      "expectedHealthUrl": "http://localhost:8081/health",
+      "expectedAppPool": "ManagementServerAppPool",
+      "runtimeDependencies": []
+    },
+    {
+      "displayName": "Calculation Server",
+      "expectedServiceName": "dpo-qaa-server",
+      "expectedInstallPath": "D:/Program Files/Radar/dpo-qaa-server",
+      "expectedHealthUrl": "http://localhost:8082/readiness",
+      "expectedAppPool": "dpo-qaa-serverAppPool",
+      "runtimeDependencies": []
+    },
+    {
+      "displayName": "Settings Manager",
+      "expectedServiceName": "dpo-qaa-sttgsmngr",
+      "expectedInstallPath": "D:/Program Files/Radar/dpo-qaa-sttgsmngr",
+      "expectedHealthUrl": "http://localhost:8084/",
+      "expectedAppPool": "dpo-qaa-sttgsMgrAppPool",
+      "runtimeDependencies": ["Schedule Manager"]
+    },
+    {
+      "displayName": "Schedule Manager",
+      "expectedServiceName": "dpo-qaa-schdmngr",
+      "expectedInstallPath": "D:/Program Files/Radar/dpo-qaa-schdmngr",
+      "expectedHealthUrl": "http://localhost:8085/",
+      "expectedAppPool": "dpo-qaa-schdmngrAppPool",
+      "runtimeDependencies": ["Calculation Server"]
+    }
+  ],
+  "IIS": {
+    "requiredWindowsFeatures": [
+      "Web-Server", "Web-Static-Content", "Web-ASP-Net45", "Web-ISAPI-Ext", "Web-ISAPI-Filter", "Web-Http-Redirect", "Web-Windows-Auth"
+    ],
+    "expectedSites": ["RadarLive"],
+    "expectedAppPools": [
+      {"name": "ManagementServerAppPool", "expectedIdentity": "TEST\\SVRPPRRDRLDEV01$"},
+      {"name": "dpo-qaa-serverAppPool", "expectedIdentity": "TEST\\SVRPPRRDRLDEV01$"},
+      {"name": "dpo-qaa-sttgsMgrAppPool", "expectedIdentity": "TEST\\SVRPPRRDRLDEV01$"},
+      {"name": "dpo-qaa-schdmngrAppPool", "expectedIdentity": "TEST\\SVRPPRRDRLDEV01$"}
+    ]
+  },
+  "SQL": {
+    "sqlServers": [
+      {
+        "hostname": "sql-dev01.test.corp",
+        "expectedPort": 1433,
+        "databases": ["RadarManagement"],
+        "expectedSqlLogin": "TEST\\SVRPPRRDRLDEV01$",
+        "expectedRoles": ["db_datareader", "db_datawriter"]
+      }
+    ],
+    "connectionTest": true,
+    "dnsResolutionTimeoutSeconds": 3,
+    "portConnectionTimeoutSeconds": 5
+  },
+  "Network": {
+    "dnsResolution": true,
+    "portOpen": [1433, 8081, 8082, 8083, 8084, 8085],
+    "routingChecks": true,
+    "routingCheckDescription": "Validate default gateway and interface for outbound SQL connectivity"
+  },
+  "EventLog": {
+    "lookbackHours": 12,
+    "filterSources": ["WTW*", "Radar*", "IIS-W3SVC", ".NET Runtime"],
+    "severityLevels": ["Error", "Critical", "Warning"]
+  },
+  "VersionChecks": {
+    "dotnetHostingBundle": ">=7.0.0",
+    "powershellMinimumVersion": ">=7.2.0",
+    "wtwManagementModule": {"name": "WTW.Radar.Management", "minVersion": ">=1.0.0"}
+  },
+  "ConfigFileChecks": {
+    "filePaths": [
+      "D:/Program Files/Radar/ManagementServer/appsettings.json",
+      "D:/Program Files/Radar/dpo-qaa-serverAppPool/appsettings.json",
+      "D:/Program Files/Radar/dpo-qaa-sttgsMgrAppPool/appsettings.json",
+      "D:/Program Files/Radar/dpo-qaa-schdmngrAppPool/appsettings.json"
+    ],
+    "expectedJsonOrXmlSchema": true,
+    "fileHashComparison": true
+  },
+  "HealthAndTiming": {
+    "healthHttpTimeoutSeconds": 5,
+    "healthSuccessCodes": [200],
+    "maxTotalSkimDurationSeconds": 300
+  },
+  "Reporting": {
+    "outputFormat": ["json", "md", "table"],
+    "storeHistory": true,
+    "historyStoragePath": "D:/Logs/RadarSkim/History",
+    "failOnCritical": true,
+    "warnThreshold": 3
+  },
+  "SecretsAndSecurity": {
+    "noSecretsInLogs": true,
+    "logPlaceholderForSecrets": "[REDACTED]"
+  },
+  "AcceptanceTestSpec": {
+    "component": "Settings Manager",
+    "checks": [
+      {"type": "health", "expectedCode": 200},
+      {"type": "appPoolIdentity", "expectedIdentity": "TEST\\SVRPPRRDRLDEV01$"},
+      {"type": "dbConnection", "expectedResult": "PASS"}
+    ]
+  },
+  "DriftDetection": {
+    "driftScanSchedule": "0 2 * * *",
+    "driftScanScheduleFormat": "cron",
+    "enabled": true
+  }
+}

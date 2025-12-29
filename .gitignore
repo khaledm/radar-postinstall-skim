@@ -1,0 +1,43 @@
+# PowerShell artifacts
+*.log
+*.prof*
+.env*
+*.tmp
+*.swp
+
+# Pester test results
+**/TestResults/
+**/*.Tests.xml
+pester-results.xml
+
+# Artifact storage (historical data - optionally commit or exclude)
+History/
+historyStoragePath/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build outputs
+bin/
+obj/
+dist/
+build/
+out/
+
+# Node modules (if any frontend tooling added later)
+node_modules/
+
+# Temporary files
+temp/
+tmp/
+*.bak

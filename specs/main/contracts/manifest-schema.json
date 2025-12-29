@@ -1,0 +1,251 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Radar Live Post-Install Skim Desired State Manifest",
+  "type": "object",
+  "required": ["EnvironmentName", "GMSInUse", "Components", "IIS", "SQL", "Network", "HealthAndTiming"],
+  "properties": {
+    "EnvironmentName": {
+      "type": "string",
+      "enum": ["DEV", "UAT", "PRD"],
+      "description": "Target environment for validation"
+    },
+    "GMSInUse": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9\\-\\_\\$]+$",
+      "description": "Group Managed Service Account identity (e.g., DOMAIN\\gmsa-radar-dev$)"
+    },
+    "Components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["displayName", "expectedServiceName", "expectedInstallPath", "expectedHealthUrl"],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable component name (e.g., 'Management Server')"
+          },
+          "expectedServiceName": {
+            "type": "string",
+            "description": "Windows service name to validate"
+          },
+          "expectedInstallPath": {
+            "type": "string",
+            "description": "Installation directory path (e.g., 'C:\\\\Program Files\\\\Radar Live\\\\ManagementServer')"
+          },
+          "expectedHealthUrl": {
+            "type": "string",
+            "pattern": "^https?://",
+            "description": "Health endpoint URL (HTTP or HTTPS)"
+          },
+          "certificateValidation": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to validate HTTPS certificates (default: true). Set to false for dev/test with self-signed certs."
+          },
+          "expectedAppPool": {
+            "type": "string",
+            "description": "IIS AppPool name for the component"
+          },
+          "runtimeDependencies": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of component displayNames this component depends on"
+          }
+        }
+      }
+    },
+    "IIS": {
+      "type": "object",
+      "required": ["requiredWindowsFeatures", "expectedSites", "expectedAppPools"],
+      "properties": {
+        "requiredWindowsFeatures": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Windows features required for IIS (e.g., ['Web-Server', 'Web-Asp-Net45'])"
+        },
+        "expectedSites": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "IIS site names that must exist"
+        },
+        "expectedAppPools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "identity"],
+            "properties": {
+              "name": {"type": "string"},
+              "identity": {"type": "string", "description": "Expected gMSA identity"}
+            }
+          }
+        }
+      }
+    },
+    "SQL": {
+      "type": "object",
+      "required": ["sqlServers", "connectionTest"],
+      "properties": {
+        "sqlServers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host", "databases"],
+            "properties": {
+              "host": {"type": "string", "description": "SQL Server hostname or FQDN"},
+              "databases": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        },
+        "connectionTest": {
+          "type": "boolean",
+          "description": "Whether to perform live SQL connection test"
+        },
+        "dnsResolutionTimeoutSeconds": {
+          "type": "number",
+          "default": 5,
+          "description": "DNS resolution timeout (default: 5s)"
+        },
+        "portConnectionTimeoutSeconds": {
+          "type": "number",
+          "default": 5,
+          "description": "Port connectivity timeout (default: 5s)"
+        },
+        "sqlMaxRetries": {
+          "type": "number",
+          "default": 2,
+          "description": "Maximum retry attempts for transient SQL failures (fixed: 2)"
+        },
+        "sqlRetryDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Initial retry delay in milliseconds (fixed: 1000ms, exponential backoff)"
+        }
+      }
+    },
+    "Network": {
+      "type": "object",
+      "required": ["dnsResolution", "portOpen"],
+      "properties": {
+        "dnsResolution": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Hostnames that must resolve via DNS"
+        },
+        "portOpen": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host", "port"],
+            "properties": {
+              "host": {"type": "string"},
+              "port": {"type": "number"}
+            }
+          }
+        },
+        "routingChecks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["destination", "description"],
+            "properties": {
+              "destination": {"type": "string"},
+              "description": {"type": "string"},
+              "critical": {"type": "boolean", "default": true}
+            }
+          }
+        }
+      }
+    },
+    "EventLog": {
+      "type": "object",
+      "properties": {
+        "lookbackHours": {"type": "number", "default": 24},
+        "filterSources": {"type": "array", "items": {"type": "string"}},
+        "severityLevels": {"type": "array", "items": {"type": "string", "enum": ["Error", "Warning", "Information"]}}
+      }
+    },
+    "VersionChecks": {
+      "type": "object",
+      "properties": {
+        "dotnetHostingBundle": {"type": "string", "description": "Minimum .NET Hosting Bundle version (e.g., '8.0.0')"},
+        "powershellMinimumVersion": {"type": "string", "default": "7.5.0"},
+        "wtwManagementModule": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "minimumVersion": {"type": "string"}
+          }
+        }
+      }
+    },
+    "ConfigFileChecks": {
+      "type": "object",
+      "properties": {
+        "filePaths": {"type": "array", "items": {"type": "string"}},
+        "expectedJsonOrXmlSchema": {"type": "object", "description": "Schema definition for config file validation"}
+      }
+    },
+    "HealthAndTiming": {
+      "type": "object",
+      "required": ["healthTimeoutSeconds"],
+      "properties": {
+        "healthTimeoutSeconds": {"type": "number", "default": 2},
+        "healthMaxRetries": {"type": "number", "default": 2, "description": "Fixed: 2 retries"},
+        "healthRetryDelayMs": {"type": "number", "default": 1000, "description": "Fixed: 1000ms with exponential backoff"},
+        "healthSuccessCodes": {
+          "type": "array",
+          "items": {"type": "number"},
+          "default": [200, 204],
+          "description": "HTTP status codes considered healthy"
+        },
+        "maxTotalSkimDurationSeconds": {"type": "number", "default": 300}
+      }
+    },
+    "ResilienceAndDegradation": {
+      "type": "object",
+      "properties": {
+        "timeoutEnforcement": {"type": "boolean", "default": true},
+        "partialResultPersistence": {"type": "boolean", "default": true},
+        "gracefulDegradation": {"type": "boolean", "default": true}
+      }
+    },
+    "Reporting": {
+      "type": "object",
+      "required": ["outputFormat", "storeHistory", "historyStoragePath"],
+      "properties": {
+        "outputFormat": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["JSON", "Markdown", "Table"]},
+          "default": ["JSON", "Markdown"]
+        },
+        "pesterOutputFormat": {"type": "string", "default": "NUnit3", "description": "Fixed: NUnit3 XML format"},
+        "storeHistory": {"type": "boolean", "default": true},
+        "historyStoragePath": {"type": "string", "description": "Local file system path for artifact storage"},
+        "failOnCritical": {"type": "boolean", "default": true},
+        "warnThreshold": {"type": "number", "default": 3},
+        "warnAcknowledgments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["warnId", "operatorId", "timestamp", "reason"],
+            "properties": {
+              "warnId": {"type": "string"},
+              "operatorId": {"type": "string"},
+              "timestamp": {"type": "string", "format": "date-time"},
+              "reason": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "SecretsAndSecurity": {
+      "type": "object",
+      "properties": {
+        "noSecretsInLogs": {"type": "boolean", "default": true},
+        "logPlaceholderForSecrets": {"type": "string", "default": "***REDACTED***"},
+        "leastPrivilege": {"type": "boolean", "default": true}
+      }
+    }
+  }
+}

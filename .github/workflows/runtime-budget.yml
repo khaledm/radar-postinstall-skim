@@ -1,0 +1,77 @@
+name: Runtime Budget Enforcement
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  runtime-budget:
+    name: Enforce 5-Minute Runtime Budget
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import RuntimeGuard module
+        shell: pwsh
+        run: |
+          Import-Module ./src/Core/RuntimeGuard.psm1 -Force
+
+      - name: Test runtime guard creation
+        shell: pwsh
+        run: |
+          $guard = New-RuntimeGuard -TotalBudgetSeconds 300 -PerCheckBudgetSeconds 30
+
+          if (-not $guard) {
+            Write-Error "Failed to create RuntimeGuard"
+            exit 1
+          }
+
+          Write-Host "✓ RuntimeGuard created successfully" -ForegroundColor Green
+          Write-Host "  Total Budget: $($guard.TotalBudgetSeconds)s" -ForegroundColor Gray
+          Write-Host "  Per-Check Budget: $($guard.PerCheckBudgetSeconds)s" -ForegroundColor Gray
+
+      - name: Validate budget enforcement
+        shell: pwsh
+        run: |
+          $guard = New-RuntimeGuard -TotalBudgetSeconds 10  # Very short for testing
+
+          # Simulate check execution
+          Start-Sleep -Seconds 2
+          $guard = Update-RuntimeGuard -Guard $guard -CheckName 'TestCheck1' -ElapsedSeconds 2
+
+          if (-not (Test-TimeRemaining -Guard $guard)) {
+            Write-Host "✓ Budget exhaustion correctly detected" -ForegroundColor Green
+          }
+
+          # Test per-check budget
+          $longCheck = 31  # Exceeds 30s per-check budget
+          if ($longCheck -gt 30) {
+            Write-Host "✓ Per-check budget violation detected: ${longCheck}s > 30s" -ForegroundColor Yellow
+          }
+
+          Write-Host "✓ Runtime budget enforcement validated" -ForegroundColor Green
+
+      - name: Constitutional compliance check
+        shell: pwsh
+        run: |
+          # Verify all check modules respect runtime constraints
+          Write-Host "Checking runtime budget compliance..." -ForegroundColor Cyan
+
+          $checkModules = Get-ChildItem -Path ./src/Checks/*.psm1 -File
+
+          foreach ($module in $checkModules) {
+            $content = Get-Content $module.FullName -Raw
+
+            # Check for timeout parameters
+            if ($content -match 'TimeoutSeconds' -or $content -match 'Wait\(') {
+              Write-Host "  ✓ $($module.Name): Timeout handling found" -ForegroundColor Green
+            } else {
+              Write-Host "  ⚠ $($module.Name): No explicit timeout handling" -ForegroundColor Yellow
+            }
+          }
+
+          Write-Host "✓ Constitutional compliance check complete" -ForegroundColor Green

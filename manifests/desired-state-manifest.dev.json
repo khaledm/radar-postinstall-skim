@@ -1,0 +1,153 @@
+{
+  "$schema": "../specs/main/contracts/manifest-schema.json",
+  "EnvironmentName": "DEV",
+  "GMSInUse": "TESTDOMAIN\\svc-radar-dev$",
+  "Components": [
+    {
+      "displayName": "Management Server",
+      "expectedServiceName": "W3SVC",
+      "expectedInstallPath": "C:\\inetpub\\wwwroot\\RadarManagement",
+      "expectedHealthUrl": "http://localhost:8081/health",
+      "certificateValidation": false,
+      "expectedAppPool": "RadarManagementAppPool",
+      "runtimeDependencies": []
+    },
+    {
+      "displayName": "Calculation Server",
+      "expectedServiceName": "RadarCalculationService",
+      "expectedInstallPath": "C:\\Program Files\\Radar\\CalculationServer",
+      "expectedHealthUrl": "http://localhost:8082/health",
+      "certificateValidation": false,
+      "runtimeDependencies": []
+    },
+    {
+      "displayName": "Settings Manager",
+      "expectedServiceName": "W3SVC",
+      "expectedInstallPath": "C:\\inetpub\\wwwroot\\RadarSettings",
+      "expectedHealthUrl": "http://localhost:8084/health",
+      "certificateValidation": false,
+      "expectedAppPool": "RadarSettingsAppPool",
+      "runtimeDependencies": ["Schedule Manager"]
+    },
+    {
+      "displayName": "Schedule Manager",
+      "expectedServiceName": "W3SVC",
+      "expectedInstallPath": "C:\\inetpub\\wwwroot\\RadarSchedule",
+      "expectedHealthUrl": "http://localhost:8085/health",
+      "certificateValidation": false,
+      "expectedAppPool": "RadarScheduleAppPool",
+      "runtimeDependencies": ["Calculation Server"]
+    }
+  ],
+  "IIS": {
+    "requiredWindowsFeatures": [
+      "Web-Server",
+      "Web-Static-Content",
+      "Web-ASP-Net45",
+      "Web-ISAPI-Ext",
+      "Web-ISAPI-Filter",
+      "Web-Http-Redirect",
+      "Web-Windows-Auth"
+    ],
+    "expectedSites": [
+      "RadarLive"
+    ],
+    "expectedAppPools": [
+      {
+        "name": "RadarManagementAppPool",
+        "identity": "TESTDOMAIN\\svc-radar-dev$"
+      },
+      {
+        "name": "RadarSettingsAppPool",
+        "identity": "TESTDOMAIN\\svc-radar-dev$"
+      },
+      {
+        "name": "RadarScheduleAppPool",
+        "identity": "TESTDOMAIN\\svc-radar-dev$"
+      }
+    ]
+  },
+  "SQL": {
+    "sqlServers": [
+      {
+        "host": "SQLDEV01",
+        "databases": ["RadarManagement", "RadarScheduling"]
+      }
+    ],
+    "connectionTest": true,
+    "dnsResolutionTimeoutSeconds": 5,
+    "portConnectionTimeoutSeconds": 5,
+    "sqlMaxRetries": 2,
+    "sqlRetryDelayMs": 1000
+  },
+  "Network": {
+    "dnsResolution": [
+      "SQLDEV01",
+      "api.external.com"
+    ],
+    "portOpen": [
+      {
+        "host": "SQLDEV01",
+        "port": 1433
+      },
+      {
+        "host": "api.external.com",
+        "port": 443
+      }
+    ],
+    "routingChecks": [
+      {
+        "destination": "SQLDEV01",
+        "description": "SQL Server connectivity for database operations",
+        "critical": true
+      }
+    ]
+  },
+  "EventLog": {
+    "lookbackHours": 12,
+    "filterSources": ["Radar*", "IIS-W3SVC", ".NET Runtime"],
+    "severityLevels": ["Error", "Warning"]
+  },
+  "VersionChecks": {
+    "dotnetHostingBundle": "8.0.0",
+    "powershellMinimumVersion": "7.5.0",
+    "wtwManagementModule": {
+      "name": "Pester",
+      "minimumVersion": "5.0.0"
+    }
+  },
+  "ConfigFileChecks": {
+    "filePaths": [
+      "C:\\inetpub\\wwwroot\\RadarManagement\\appsettings.json",
+      "C:\\inetpub\\wwwroot\\RadarSettings\\appsettings.json",
+      "C:\\inetpub\\wwwroot\\RadarSchedule\\appsettings.json"
+    ],
+    "expectedJsonOrXmlSchema": {}
+  },
+  "HealthAndTiming": {
+    "healthTimeoutSeconds": 5,
+    "healthMaxRetries": 2,
+    "healthRetryDelayMs": 1000,
+    "healthSuccessCodes": [200, 204],
+    "maxTotalSkimDurationSeconds": 300
+  },
+  "ResilienceAndDegradation": {
+    "timeoutEnforcement": true,
+    "partialResultPersistence": true,
+    "gracefulDegradation": true
+  },
+  "Reporting": {
+    "outputFormat": ["JSON", "Markdown", "Table"],
+    "pesterOutputFormat": "NUnit3",
+    "storeHistory": true,
+    "historyStoragePath": "C:\\ProgramData\\RadarSkim\\History",
+    "failOnCritical": true,
+    "warnThreshold": 3,
+    "warnAcknowledgments": []
+  },
+  "SecretsAndSecurity": {
+    "noSecretsInLogs": true,
+    "logPlaceholderForSecrets": "***REDACTED***",
+    "leastPrivilege": true
+  }
+}

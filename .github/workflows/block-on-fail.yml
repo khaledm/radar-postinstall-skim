@@ -1,0 +1,70 @@
+name: Block on Critical Failures
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  block-on-fail:
+    name: Validate Critical Checks
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Import modules
+        shell: pwsh
+        run: |
+          Import-Module ./src/Core/ResultAggregator.psm1 -Force
+          Import-Module ./src/Checks/Reporting.psm1 -Force
+
+      - name: Validate failOnCritical logic
+        shell: pwsh
+        run: |
+          # Test that FAIL results block pipeline when failOnCritical=true
+
+          $testResults = @(
+            [PSCustomObject]@{ Status = 'PASS'; CheckName = 'Test1' },
+            [PSCustomObject]@{ Status = 'FAIL'; CheckName = 'Test2'; Message = 'Critical failure' },
+            [PSCustomObject]@{ Status = 'WARN'; CheckName = 'Test3' }
+          )
+
+          $aggregated = Get-AggregatedStatus -Results $testResults
+
+          if ($aggregated -eq 'FAIL') {
+            Write-Host "✓ FAIL status correctly detected" -ForegroundColor Green
+
+            # Simulate failOnCritical=true behavior
+            Write-Error "Pipeline blocked due to critical FAIL result(s)"
+            exit 1
+          } else {
+            Write-Error "Expected FAIL status but got $aggregated"
+            exit 1
+          }
+
+      - name: Validate WARN threshold logic
+        shell: pwsh
+        run: |
+          # Test that excessive WARNs block pipeline when threshold exceeded
+
+          $testResults = @(
+            [PSCustomObject]@{ Status = 'PASS'; CheckName = 'Test1' },
+            [PSCustomObject]@{ Status = 'WARN'; CheckName = 'Test2' },
+            [PSCustomObject]@{ Status = 'WARN'; CheckName = 'Test3' },
+            [PSCustomObject]@{ Status = 'WARN'; CheckName = 'Test4' },
+            [PSCustomObject]@{ Status = 'WARN'; CheckName = 'Test5' }
+          )
+
+          $warnCount = ($testResults | Where-Object { $_.Status -eq 'WARN' }).Count
+          $threshold = 3
+
+          if ($warnCount -gt $threshold) {
+            Write-Host "✓ WARN threshold exceeded: $warnCount > $threshold" -ForegroundColor Yellow
+            Write-Error "Pipeline blocked due to excessive WARN results"
+            exit 1
+          }
+
+          Write-Host "✓ Validation complete" -ForegroundColor Green
