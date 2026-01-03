@@ -11,6 +11,13 @@
 - Q: Before running the validation script for the first time on a target server, what setup steps must be completed? → A: Install PowerShell 7.5+, Pester 5.0+, verify read permissions to resources
 - Q: Based on your experience, what is the most common validation failure you expect when running these checks in real environments? → A: All of the above (services not running, IIS mismatches, SQL connectivity, health endpoint timeouts)
 
+### Session 2026-01-03
+- Q: Should Pester infrastructure validation tests run in GitHub Actions CI/CD pipelines on check-in? → A: **No. These tests validate REAL infrastructure** (IIS, SQL, services, health endpoints) on target servers. They have zero value running on GitHub Actions runners which lack Radar Live components, domain gMSA accounts, SQL connectivity, and environment manifests. Tests will always fail in CI/CD runners.
+- Q: What type of validation belongs in GitHub Actions workflows? → A: **Code quality validation only** - PSScriptAnalyzer linting, formatting checks, PowerShell version validation, secret scanning. Test CODE structure and syntax, NOT infrastructure state.
+- Q: Where should infrastructure validation tests execute? → A: **On actual target servers** (DEV/UAT/PRD) via: (1) Azure DevOps pipelines with self-hosted agents running ON target servers, (2) Scheduled tasks/cron jobs on target servers, (3) Manual operator execution post-deployment. Never on remote CI/CD runners.
+- Q: Does the framework require unit tests to test the validation tests? → A: **No. Per Constitution Section III: "The Pester validation tests ARE the product."** Infrastructure validation is implemented as Pester tests that naturally interact with real infrastructure. No additional meta-tests or mocked unit tests required.
+- Q: What is the purpose of Azure DevOps pipelines vs GitHub Actions for this project? → A: **GitHub Actions = code validation** (linting, formatting, best practices on PR check-ins). **Azure DevOps pipelines = infrastructure validation** (execute Invoke-PostInstallSkim.ps1 on target servers post-deployment or on schedule per Constitution Section VII).
+
 ### Session 2025-11-28
 - Q: What does GMSInUse represent and how should it relate to AppPool and SQL login identities? → A: GMSInUse must match all AppPool and SQL login identities for the environment.
 ### Session 2025-12-01
@@ -190,6 +197,14 @@ Both capabilities share the same mechanism (re-runnable validation) but serve di
 
 > **Note**: Drift detection is implemented via scheduled CI/CD pipeline execution (see Phase 6 tasks T2301-T2302 for Azure DevOps templates). The framework provides idempotent, stateless validation (T1901-T1902); organizations configure pipeline schedules based on operational needs (PRD daily, UAT weekly, DEV on-demand per Constitution Section VII).
 
+**CRITICAL**: Infrastructure validation tests (Component.Tests.ps1, SQL.Tests.ps1, IIS.Tests.ps1, etc.) are designed to run ON actual target servers where Radar Live components are installed. These tests:
+- Validate REAL infrastructure state (running services, IIS AppPools, SQL connections, health endpoints)
+- Require access to domain gMSA accounts, SQL Server, IIS configuration, Event Logs
+- Will FAIL if executed on CI/CD runners (GitHub Actions, Azure DevOps hosted agents) that lack these resources
+- Should execute via Azure DevOps pipelines with **self-hosted agents running ON target servers** or scheduled tasks/cron jobs
+
+Do NOT attempt to run infrastructure validation tests in GitHub Actions workflows. GitHub Actions should validate CODE quality only (linting, formatting, PowerShell version checks).
+
 ---
 
 ## Implementation Notes
@@ -231,3 +246,61 @@ if ($manifest.Reporting.storeHistory) {
 ```
 
 For detailed least privilege criteria, see `docs/security/least-privilege.md`.
+
+---
+
+## CI/CD Strategy & Test Execution Guidance
+
+### GitHub Actions Workflows (.github/workflows/)
+
+**Purpose**: Validate CODE quality on pull requests and check-ins
+**Scope**: Code linting, formatting, best practices compliance, PowerShell/Pester version validation
+
+**Appropriate Validations**:
+- ✅ PSScriptAnalyzer linting (code quality rules)
+- ✅ Trailing whitespace checks
+- ✅ File encoding validation (UTF-8)
+- ✅ PowerShell 7.5+ version requirements
+- ✅ Pester 5.0+ module presence
+- ✅ Secret scanning (connection string patterns)
+- ✅ Manifest schema validation (JSON syntax)
+
+**Inappropriate Validations** (will always fail):
+- ❌ Running Pester infrastructure tests (Component.Tests.ps1, SQL.Tests.ps1, IIS.Tests.ps1, etc.)
+- ❌ Testing real IIS AppPools, SQL connections, Windows Services
+- ❌ Validating health endpoints, gMSA identities, Event Logs
+- ❌ Any validation requiring actual Radar Live components or domain resources
+
+**Why Infrastructure Tests Fail in GitHub Actions**:
+GitHub Actions runners (`windows-latest`) lack:
+- Radar Live components installation (Management Server, Calculation Service, etc.)
+- IIS configuration with environment-specific AppPools
+- SQL Server connectivity and databases (RadarLive_DEV/UAT/PRD)
+- Domain gMSA accounts (TEST\\SVRPPRRDRLDEV01$, PROD\\SVRPPRRDRLUAT01$, etc.)
+- Environment-specific manifests with correct hostnames, ports, credentials
+
+### Azure DevOps Pipelines (.azure-pipelines/)
+
+**Purpose**: Execute infrastructure validation ON target servers post-deployment or on schedule
+**Scope**: Post-deployment readiness validation, scheduled drift detection, compliance verification
+
+**Execution Pattern**:
+1. Azure DevOps pipeline triggers (post-deployment, scheduled, manual)
+2. Self-hosted agent **running ON target server** (DEV/UAT/PRD)
+3. Agent executes `Invoke-PostInstallSkim.ps1` with environment manifest
+4. Pester tests validate actual infrastructure (local IIS, local services, SQL connectivity, health endpoints)
+5. Pipeline publishes NUnit3 XML results, artifacts, and ReadyForUse determination
+6. Pipeline blocks deployment or sends alerts on ReadyForUse=false
+
+**Required Agent Configuration**:
+- Self-hosted agent installed ON each target server (not Azure DevOps hosted agents)
+- Agent service runs as environment gMSA (e.g., TEST\\SVRPPRRDRLDEV01$)
+- PowerShell 7.5+ and Pester 5.0+ installed on target server
+- Agent has read permissions to IIS, Event Logs, SQL Server
+
+**Recommended Schedule** (per Constitution Section VII):
+- **PRD**: Daily (2 AM) - detect drift from Windows Updates, patches
+- **UAT**: Weekly (Monday 2 AM) - pre-deployment validation
+- **DEV**: On-demand only - post-deployment manual trigger
+
+See `specs/main/quickstart.md` lines 1100-1238 for Azure DevOps pipeline templates (T2301-T2302).
