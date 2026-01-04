@@ -160,9 +160,9 @@ function Test-ContainsSecret {
 
         # Check against detection patterns
         foreach ($pattern in $script:DetectionPatterns) {
-            $matches = $pattern.Matches($InputText)
-            if ($matches.Count -gt 0) {
-                $matchCount += $matches.Count
+            $patternMatches = $pattern.Matches($InputText)
+            if ($patternMatches.Count -gt 0) {
+                $matchCount += $patternMatches.Count
 
                 # Record pattern description
                 $patternDesc = switch -Regex ($pattern.ToString()) {

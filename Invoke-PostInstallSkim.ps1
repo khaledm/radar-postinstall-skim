@@ -115,10 +115,7 @@ try {
     #region Pester Execution
     Write-Host "Step 4: Executing Pester tests..." -ForegroundColor Cyan
 
-    # T1303: Pester execution with timeout
-    $maxDuration = $manifest.MaxTotalSkimDurationSeconds ?? 300
-    $timeoutSeconds = $maxDuration - 30  # Reserve 30s for report generation
-
+    # T1303: Pester execution
     # Create temporary artifact directory for Pester results
     $tempArtifactPath = Join-Path $env:TEMP "radar-skim-$(Get-Date -Format 'yyyy-MM-dd-HHmmss')"
     New-Item -Path $tempArtifactPath -ItemType Directory -Force | Out-Null

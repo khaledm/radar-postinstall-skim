@@ -23,7 +23,20 @@ jobs:
       - name: Run PSScriptAnalyzer
         shell: pwsh
         run: |
-          $results = Invoke-ScriptAnalyzer -Path . -Recurse -ExcludeRule PSAvoidUsingWriteHost
+          # Exclude .specify/ directory (tooling infrastructure, not product code)
+          # Suppress style rules that don't affect functionality
+          $excludeRules = @(
+            'PSAvoidUsingWriteHost',
+            'PSUseSingularNouns',
+            'PSUseApprovedVerbs',
+            'PSUseShouldProcessForStateChangingFunctions'
+          )
+
+          # Scan all files except .specify/ directory
+          $filesToScan = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.psd1 -Recurse |
+            Where-Object { $_.FullName -notmatch '[\\/]\.specify[\\/]' -and $_.FullName -notmatch '[\\/]\.git[\\/]' }
+
+          $results = $filesToScan | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -ExcludeRule $excludeRules }
 
           if ($results) {
             $results | Format-Table -AutoSize

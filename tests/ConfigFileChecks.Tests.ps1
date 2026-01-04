@@ -76,8 +76,9 @@ Describe 'Config File Validation' {
                 $xml.Schemas = $schemaSet
 
                 $validationErrors = @()
+                # Note: $_sender parameter required by ValidationEventHandler delegate signature but intentionally unused
                 $xml.Validate({
-                    param($sender, $e)
+                    param($_sender, $e)
                     $validationErrors += $e.Message
                 })
 
