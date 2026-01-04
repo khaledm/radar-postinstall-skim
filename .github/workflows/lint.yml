@@ -29,7 +29,10 @@ jobs:
             'PSAvoidUsingWriteHost',
             'PSUseSingularNouns',
             'PSUseApprovedVerbs',
-            'PSUseShouldProcessForStateChangingFunctions'
+            'PSUseShouldProcessForStateChangingFunctions',
+            'PSReviewUnusedParameter',
+            'PSUseBOMForUnicodeEncodedFile',
+            'PSUseToExportFieldsInManifest'
           )
 
           # Scan all files except .specify/ directory
