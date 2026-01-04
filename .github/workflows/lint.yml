@@ -23,7 +23,7 @@ jobs:
       - name: Run PSScriptAnalyzer
         shell: pwsh
         run: |
-          # Exclude .specify/ directory (tooling infrastructure, not product code)
+          # Exclude .specify/ and .github/agents/ directories (tooling infrastructure, not product code)
           # Suppress style rules that don't affect functionality
           $excludeRules = @(
             'PSAvoidUsingWriteHost',
@@ -35,9 +35,13 @@ jobs:
             'PSUseToExportFieldsInManifest'
           )
 
-          # Scan all files except .specify/ directory
+          # Scan all files except .specify/ and .github/agents/ directories
           $filesToScan = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.psd1 -Recurse |
-            Where-Object { $_.FullName -notmatch '[\\/]\.specify[\\/]' -and $_.FullName -notmatch '[\\/]\.git[\\/]' }
+            Where-Object {
+              $_.FullName -notmatch '[\\/]\.specify[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.github[\\/]agents[\\/]'
+            }
 
           $results = $filesToScan | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -ExcludeRule $excludeRules }
 
@@ -52,7 +56,13 @@ jobs:
       - name: Check for trailing whitespace
         shell: pwsh
         run: |
-          $files = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.md -Recurse | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }
+          # Exclude .specify/ and .github/agents/ directories (tooling infrastructure)
+          $files = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.md -Recurse |
+            Where-Object {
+              $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.specify[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.github[\\/]agents[\\/]'
+            }
           $issues = @()
 
           foreach ($file in $files) {
@@ -72,7 +82,13 @@ jobs:
       - name: Check file encoding (UTF-8)
         shell: pwsh
         run: |
-          $files = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.md,*.json -Recurse | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }
+          # Exclude .specify/ and .github/agents/ directories (tooling infrastructure)
+          $files = Get-ChildItem -Path . -Include *.ps1,*.psm1,*.md,*.json -Recurse |
+            Where-Object {
+              $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.specify[\\/]' -and
+              $_.FullName -notmatch '[\\/]\.github[\\/]agents[\\/]'
+            }
           $issues = @()
 
           foreach ($file in $files) {
