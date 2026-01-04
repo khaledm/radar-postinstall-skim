@@ -1,6 +1,5 @@
 # Radar Live Post-Install Skim
 [![Lint and Format](https://github.com/khaledm/radar-postinstall-skim/workflows/Lint%20and%20Format/badge.svg)](https://github.com/khaledm/radar-postinstall-skim/actions)
-[![Pester Unit Tests](https://github.com/khaledm/radar-postinstall-skim/workflows/Pester%20Unit%20Tests/badge.svg)](https://github.com/khaledm/radar-postinstall-skim/actions)
 [![PowerShell 7.5+](https://img.shields.io/badge/PowerShell-7.5%2B-blue)](https://github.com/PowerShell/PowerShell)
 This project validates Radar Live environments (DEV/UAT/PRD) for operational readiness after installation or patching. All checks are modular, DRY, and PowerShell 7.5+ compliant per the [Constitution](specs/main/constitution.md).
 ## Table of Contents
