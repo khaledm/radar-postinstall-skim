@@ -1,23 +1,18 @@
 # Feature Specification: Radar Live Post-Install Skim
-
 > **Note**: This specification aligns with `.specify/memory/constitution.md` v1.6.0. Non-functional requirements are defined in Section IV (NFRs). Success criteria and test structure requirements are defined in Section V (Test Suite Success & Environment Readiness). Tolerances and thresholds are defined in Section X. All implementation must comply with constitutional constraints including idempotency, PowerShell 7.5+, Pester 5.0+, read-only operations, and timeout enforcement.
-
 ## Clarifications
-
 ### Session 2025-12-07
 - Q: When running validation tests against real environments (DEV/UAT/PRD), which authentication approach should be used? → A: Service account runs from centralized automation server
 - Q: When the validation script needs credentials to access SQL databases or other protected resources in real environments, where should these credentials be retrieved from? → A: Use logged-in user credentials
 - Q: When the automation server needs to execute validation checks against target environment servers (DEV/UAT/PRD), which network access pattern will be used? → A: Direct network access (no remoting, run locally on each target server)
 - Q: Before running the validation script for the first time on a target server, what setup steps must be completed? → A: Install PowerShell 7.5+, Pester 5.0+, verify read permissions to resources
 - Q: Based on your experience, what is the most common validation failure you expect when running these checks in real environments? → A: All of the above (services not running, IIS mismatches, SQL connectivity, health endpoint timeouts)
-
 ### Session 2026-01-03
 - Q: Should Pester infrastructure validation tests run in GitHub Actions CI/CD pipelines on check-in? → A: **No. These tests validate REAL infrastructure** (IIS, SQL, services, health endpoints) on target servers. They have zero value running on GitHub Actions runners which lack Radar Live components, domain gMSA accounts, SQL connectivity, and environment manifests. Tests will always fail in CI/CD runners.
 - Q: What type of validation belongs in GitHub Actions workflows? → A: **Code quality validation only** - PSScriptAnalyzer linting, formatting checks, PowerShell version validation, secret scanning. Test CODE structure and syntax, NOT infrastructure state.
 - Q: Where should infrastructure validation tests execute? → A: **On actual target servers** (DEV/UAT/PRD) via: (1) Azure DevOps pipelines with self-hosted agents running ON target servers, (2) Scheduled tasks/cron jobs on target servers, (3) Manual operator execution post-deployment. Never on remote CI/CD runners.
 - Q: Does the framework require unit tests to test the validation tests? → A: **No. Per Constitution Section III: "The Pester validation tests ARE the product."** Infrastructure validation is implemented as Pester tests that naturally interact with real infrastructure. No additional meta-tests or mocked unit tests required.
 - Q: What is the purpose of Azure DevOps pipelines vs GitHub Actions for this project? → A: **GitHub Actions = code validation** (linting, formatting, best practices on PR check-ins). **Azure DevOps pipelines = infrastructure validation** (execute Invoke-PostInstallSkim.ps1 on target servers post-deployment or on schedule per Constitution Section VII).
-
 ### Session 2025-11-28
 - Q: What does GMSInUse represent and how should it relate to AppPool and SQL login identities? → A: GMSInUse must match all AppPool and SQL login identities for the environment.
 ### Session 2025-12-01
@@ -29,19 +24,12 @@
 - Q: What storage mechanism should be used for artifact storage? → A: Local file system with structured directory hierarchy. Artifacts stored at path specified in manifest (historyStoragePath) with subdirectories: `artifacts/test-execution/{environment}/{ISO8601-timestamp}/` and `artifacts/environment-baseline/{environment}/{ISO8601-timestamp}/`.
 - Q: What's the difference between "storage" and "retention"? → A: **Storage = framework responsibility** (create artifacts, write to disk with proper structure when storeHistory=true). **Retention/cleanup = organizational responsibility** (decide when to delete old artifacts based on compliance requirements like SOC2 90-day retention, or storage capacity constraints). Framework enforces storage creation, organizations implement cleanup policies.
 - Q: Which secret patterns must be redacted from logs and reports? → A: Connection strings only (SQL connection strings, LDAP connection strings). Redaction applies to: `Server=`, `Data Source=`, `User ID=`, `Password=`, `Uid=`, `Pwd=`, `Integrated Security=`, and full connection string values. Placeholder: `***REDACTED***`.
-
 **Feature Branch**: `main`
 **Created**: 2025-11-28
 **Status**: Draft
 **Input**: Constitution and implementation plan
-
-
 ## Data Model
-
-
 The following fields are defined in the desired state manifest and must be validated by the post-install skim. **Each field below now includes explicit, testable acceptance criteria to ensure full traceability and validation.**
-
-
 - **EnvironmentName**: Target environment for validation (DEV/UAT/PRD).
 	- *Acceptance*: Pester tests must validate that the environment name matches one of the allowed values (DEV/UAT/PRD). Orchestration must include environment name in all report artifacts.
 - **GMSInUse**: The gMSA identity string. All AppPool identities and SQL logins for this environment must match this value.
@@ -120,7 +108,6 @@ The following fields are defined in the desired state manifest and must be valid
 		- *Acceptance*: Pester tests must validate each health endpoint response against manifest-provided list; only listed codes pass the test. Unlisted codes cause test failure. Orchestration may interpret repeated transient failures as WARN after retry exhaustion. Missing list defaults to `[200,204]` with warning annotation in orchestration report.
 	- maxTotalSkimDurationSeconds: Max allowed total runtime
 		- *Acceptance*: Orchestration must abort if total runtime exceeds configured value (default 300s per Constitution Section X) and persist partial results tagged `PARTIAL`.
-
 - **ResilienceAndDegradation**: Timeout enforcement and graceful degradation behavior per Constitution Section IX.
 	- timeoutEnforcement: All operations with external dependencies (network, SQL, health endpoints) must enforce timeouts per Section X thresholds. Operations exceeding timeout must fail fast.
 		- *Acceptance*: Orchestration must enforce timeouts per manifest configuration (defaults from Section X). Timeout violations produce test failure with clear indication of exceeded budget.
@@ -153,62 +140,40 @@ The following fields are defined in the desired state manifest and must be valid
 		- *Acceptance*: Orchestration must validate runtime context against disallowed roles/cmdlets defined in `docs/security/least-privilege.md`. Execution with excessive privileges causes orchestration FAIL. Validation enforced via code review checklist and automated scan.
 - **AcceptanceTestSpec**: Minimal acceptance test for a component, including health, identity, and DB connection checks.
 	- *Acceptance*: Test suite must provide Pester test coverage for each component covering: (1) health endpoint validation, (2) gMSA identity verification, (3) DB connection test.
-
 ## User Scenarios & Testing *(mandatory)*
-
 ### User Story 1 - Environment Readiness Validation (Priority: P1)
-
 As an operator, I want to execute the validation test suite and receive a clear orchestration report (PASS/WARN/FAIL with ReadyForUse determination) so that I can confidently declare the environment ready for use.
-
 **Why this priority**: This is the core value proposition—ensuring environments are safe to use per Constitution Section V.
-
 **Independent Test**: Can be fully tested by executing validation test suite after install and reviewing orchestration report.
-
 **Acceptance Scenarios**:
-
 1. **Given** a fresh install, **When** validation test suite is executed, **Then** all Pester tests pass or fail, AND orchestration produces report with ReadyForUse determination.
 2. **Given** any critical test failure (gMSA mismatch, SQL unreachable, missing component), **When** orchestration evaluates results, **Then** ReadyForUse=false AND exit code=1 (per Constitution Section V).
 3. **Given** WARN count = 3 and threshold = 3, **When** orchestration evaluates results, **Then** ReadyForUse=true. **Given** WARN count = 4 and threshold = 3, **Then** ReadyForUse=false (per Constitution Section X).
 	4. **Given** all AppPool identities and SQL logins, **When** Pester tests validate against GMSInUse, **Then** any mismatch causes test failure (orchestration interprets as FAIL).
 5. **Given** a patched environment, **When** validation test suite is executed, **Then** any misconfigurations are detected via test failures with actionable error messages.
-
 ---
-
 ### User Story 2 - Post-Change Validation and Re-Scan (Priority: P2)
-
 As an operator, I want the validation test suite to be re-runnable after patching or on a schedule so that environment configuration remains correct and compliant.
-
 **Scope Clarification**: This user story combines two capabilities:
 1. **Primary**: Post-change drift detection (re-run validation after patches/changes to detect configuration problems)
 2. **Secondary**: Artifact storage for traceability (store validation results with ISO 8601 timestamps for audit trails)
-
 Both capabilities share the same mechanism (re-runnable validation) but serve different purposes: drift detection ensures operational safety, artifact storage enables compliance auditing.
-
 **Why this priority**: Ensures ongoing compliance and operational safety per Constitution Section VII (Drift Policy). Historical artifacts enable traceability and compliance auditing per Constitution Section VIII (Artifact Storage).
-
 **Independent Test**: Can be tested by scheduling or manually triggering validation execution after environment changes.
-
 **Acceptance Scenarios**:
-
 1. **Given** environment after patches/changes, **When** validation test suite is executed, **Then** Pester tests validate current state against manifest (desired state).
 2. **Given** any test failures, **When** orchestration evaluates results, **Then** test failure messages indicate specific configuration problems (version mismatch, schema violation, missing component, identity mismatch, service stopped).
 3. **Given** non-critical test failures (per manifest `critical=false`), **When** orchestration evaluates results, **Then** orchestration may produce WARN status allowing ReadyForUse=true if within WARN threshold (default 3 per Constitution Section X).
 4. **Given** CI/CD pipeline integration, **When** validation runs automatically via pipeline trigger (daily/weekly schedule), **Then** environment configuration correctness is continuously verified and drift is automatically detected without manual intervention.
-
 > **Note**: Drift detection is implemented via scheduled CI/CD pipeline execution (see Phase 6 tasks T2301-T2302 for Azure DevOps templates). The framework provides idempotent, stateless validation (T1901-T1902); organizations configure pipeline schedules based on operational needs (PRD daily, UAT weekly, DEV on-demand per Constitution Section VII).
-
 **CRITICAL**: Infrastructure validation tests (Component.Tests.ps1, SQL.Tests.ps1, IIS.Tests.ps1, etc.) are designed to run ON actual target servers where Radar Live components are installed. These tests:
 - Validate REAL infrastructure state (running services, IIS AppPools, SQL connections, health endpoints)
 - Require access to domain gMSA accounts, SQL Server, IIS configuration, Event Logs
 - Will FAIL if executed on CI/CD runners (GitHub Actions, Azure DevOps hosted agents) that lack these resources
 - Should execute via Azure DevOps pipelines with **self-hosted agents running ON target servers** or scheduled tasks/cron jobs
-
 Do NOT attempt to run infrastructure validation tests in GitHub Actions workflows. GitHub Actions should validate CODE quality only (linting, formatting, PowerShell version checks).
-
 ---
-
 ## Implementation Notes
-
 All implementation must comply with `.specify/memory/constitution.md` v1.6.0:
 - **Section III (Guiding Principles)**: Tests are the Product, DRY, Declarative, Deterministic, Idempotent
 - **Section IV (NFRs)**: Idempotent, JSON output, PowerShell 7.5+, Pester 5.0+
@@ -216,25 +181,20 @@ All implementation must comply with `.specify/memory/constitution.md` v1.6.0:
 - **Section VIII (Artifact Storage)**: ISO 8601 timestamps, environment tagging, Test Execution vs Environment Baseline categories
 - **Section IX (Safety & Operations)**: Graceful degradation, read-only operations, timeout enforcement
 - **Section X (Thresholds)**: Health endpoints <2s, port checks 5s, total runtime 300s, WARN threshold 3
-
 ### Developer Guidance: Storage vs Retention
-
 **What the framework MUST do (mandatory)**:
 - When `storeHistory=true`, create artifact directories with ISO 8601 timestamps
 - Write all artifacts to disk immediately after validation completes
 - Fail validation if `historyStoragePath` is inaccessible (cannot write artifacts)
 - Structure artifacts per Constitution Section VIII (test-execution/ and environment-baseline/ subdirectories)
-
 **What the framework DOES NOT do (organizational responsibility)**:
 - Delete or cleanup old artifacts (no retention policy enforcement)
 - Monitor disk space or apply storage quotas
 - Archive artifacts to long-term storage
 - Implement compliance-specific retention periods (SOC2 90-day, HIPAA 7-year, etc.)
-
 **Why this separation?**:
 - **Storage = framework concern**: Ensures traceability and auditability by creating artifacts consistently
 - **Retention = organizational concern**: Different compliance frameworks (SOC2, HIPAA, GDPR) require different retention periods; storage capacity varies by organization; operational teams best positioned to implement lifecycle management
-
 **Implementation pattern**:
 ```powershell
 if ($manifest.Reporting.storeHistory) {
@@ -244,18 +204,12 @@ if ($manifest.Reporting.storeHistory) {
     # Organization responsibility: Decide when to DELETE artifacts (not framework-enforced)
 }
 ```
-
 For detailed least privilege criteria, see `docs/security/least-privilege.md`.
-
 ---
-
 ## CI/CD Strategy & Test Execution Guidance
-
 ### GitHub Actions Workflows (.github/workflows/)
-
 **Purpose**: Validate CODE quality on pull requests and check-ins
 **Scope**: Code linting, formatting, best practices compliance, PowerShell/Pester version validation
-
 **Appropriate Validations**:
 - ✅ PSScriptAnalyzer linting (code quality rules)
 - ✅ Trailing whitespace checks
@@ -264,13 +218,11 @@ For detailed least privilege criteria, see `docs/security/least-privilege.md`.
 - ✅ Pester 5.0+ module presence
 - ✅ Secret scanning (connection string patterns)
 - ✅ Manifest schema validation (JSON syntax)
-
 **Inappropriate Validations** (will always fail):
 - ❌ Running Pester infrastructure tests (Component.Tests.ps1, SQL.Tests.ps1, IIS.Tests.ps1, etc.)
 - ❌ Testing real IIS AppPools, SQL connections, Windows Services
 - ❌ Validating health endpoints, gMSA identities, Event Logs
 - ❌ Any validation requiring actual Radar Live components or domain resources
-
 **Why Infrastructure Tests Fail in GitHub Actions**:
 GitHub Actions runners (`windows-latest`) lack:
 - Radar Live components installation (Management Server, Calculation Service, etc.)
@@ -278,12 +230,9 @@ GitHub Actions runners (`windows-latest`) lack:
 - SQL Server connectivity and databases (RadarLive_DEV/UAT/PRD)
 - Domain gMSA accounts (TEST\\SVRPPRRDRLDEV01$, PROD\\SVRPPRRDRLUAT01$, etc.)
 - Environment-specific manifests with correct hostnames, ports, credentials
-
 ### Azure DevOps Pipelines (.azure-pipelines/)
-
 **Purpose**: Execute infrastructure validation ON target servers post-deployment or on schedule
 **Scope**: Post-deployment readiness validation, scheduled drift detection, compliance verification
-
 **Execution Pattern**:
 1. Azure DevOps pipeline triggers (post-deployment, scheduled, manual)
 2. Self-hosted agent **running ON target server** (DEV/UAT/PRD)
@@ -291,16 +240,13 @@ GitHub Actions runners (`windows-latest`) lack:
 4. Pester tests validate actual infrastructure (local IIS, local services, SQL connectivity, health endpoints)
 5. Pipeline publishes NUnit3 XML results, artifacts, and ReadyForUse determination
 6. Pipeline blocks deployment or sends alerts on ReadyForUse=false
-
 **Required Agent Configuration**:
 - Self-hosted agent installed ON each target server (not Azure DevOps hosted agents)
 - Agent service runs as environment gMSA (e.g., TEST\\SVRPPRRDRLDEV01$)
 - PowerShell 7.5+ and Pester 5.0+ installed on target server
 - Agent has read permissions to IIS, Event Logs, SQL Server
-
 **Recommended Schedule** (per Constitution Section VII):
 - **PRD**: Daily (2 AM) - detect drift from Windows Updates, patches
 - **UAT**: Weekly (Monday 2 AM) - pre-deployment validation
 - **DEV**: On-demand only - post-deployment manual trigger
-
 See `specs/main/quickstart.md` lines 1100-1238 for Azure DevOps pipeline templates (T2301-T2302).

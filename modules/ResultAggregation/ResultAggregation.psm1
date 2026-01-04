@@ -1,20 +1,15 @@
 #Requires -Version 7.5
-
 <#
 .SYNOPSIS
     Result aggregation module for Radar Live Post-Install Skim.
-
 .DESCRIPTION
     Aggregates Pester test results, classifies criticality, calculates ReadyForUse status,
     and generates orchestration reports per constitution Section V.
-
 .NOTES
     Module follows PowerShell 7.5+ best practices.
     Implements ReadyForUse = (FailCount == 0) AND (WarnCount <= WarnThreshold).
 #>
-
 #region Private Variables
-
 # Critical test patterns per constitution Section V
 $script:CriticalPatterns = @(
     '*gMSA*identity*'
@@ -24,26 +19,19 @@ $script:CriticalPatterns = @(
     '*dependency*chain*'
     '*Windows*feature*missing*'
 )
-
 #endregion
-
 #region Public Functions
-
 function Test-IsCriticalTest {
     <#
     .SYNOPSIS
         Determines if a test is critical based on pattern matching.
-
     .DESCRIPTION
         Checks test name against critical patterns defined in constitution Section V.
         Critical tests trigger FAIL classification on failure.
-
     .PARAMETER TestName
         The full name of the Pester test.
-
     .EXAMPLE
         $isCritical = Test-IsCriticalTest -TestName 'Component Health: gMSA identity mismatch'
-
     .OUTPUTS
         Boolean indicating if test is critical.
     #>
@@ -54,7 +42,6 @@ function Test-IsCriticalTest {
         [ValidateNotNullOrEmpty()]
         [string]$TestName
     )
-
     process {
         foreach ($pattern in $script:CriticalPatterns) {
             if ($TestName -like $pattern) {
@@ -62,28 +49,22 @@ function Test-IsCriticalTest {
                 return $true
             }
         }
-
         return $false
     }
 }
-
 function Get-CriticalityClassification {
     <#
     .SYNOPSIS
         Classifies Pester test results into PASS/FAIL/WARN categories.
-
     .DESCRIPTION
         Maps Pester test results to criticality classifications:
         - PASS: Test passed
         - FAIL: Test failed and is critical (matches critical patterns)
         - WARN: Test failed but is not critical
-
     .PARAMETER PesterResult
         Pester test result object from Invoke-Pester.
-
     .EXAMPLE
         $classification = Get-CriticalityClassification -PesterResult $pesterResult
-
     .OUTPUTS
         PSCustomObject with PassCount, FailCount, WarnCount, Details array.
     #>
@@ -94,14 +75,12 @@ function Get-CriticalityClassification {
         [ValidateNotNull()]
         [object]$PesterResult
     )
-
     process {
         try {
             $passCount = 0
             $failCount = 0
             $warnCount = 0
             $details = [System.Collections.Generic.List[PSCustomObject]]::new()
-
             # Process each test result
             foreach ($test in $PesterResult.Tests) {
                 $classification = switch ($test.Result) {
@@ -127,7 +106,6 @@ function Get-CriticalityClassification {
                         'UNKNOWN'
                     }
                 }
-
                 $details.Add([PSCustomObject]@{
                     TestName = $test.ExpandedName
                     Result = $test.Result
@@ -136,9 +114,7 @@ function Get-CriticalityClassification {
                     ErrorMessage = if ($test.ErrorRecord) { $test.ErrorRecord.Exception.Message } else { $null }
                 })
             }
-
             Write-Verbose "Classification complete: PASS=$passCount, FAIL=$failCount, WARN=$warnCount"
-
             return [PSCustomObject]@{
                 PassCount = $passCount
                 FailCount = $failCount
@@ -154,25 +130,19 @@ function Get-CriticalityClassification {
         }
     }
 }
-
 function Get-ReadyForUse {
     <#
     .SYNOPSIS
         Calculates ReadyForUse status per constitution Section V.
-
     .DESCRIPTION
         ReadyForUse = (FailCount == 0) AND (WarnCount <= WarnThreshold)
         Per constitution: No critical failures and warnings within threshold.
-
     .PARAMETER Classification
         Classification object from Get-CriticalityClassification.
-
     .PARAMETER WarnThreshold
         Maximum allowed warning count (from manifest).
-
     .EXAMPLE
         $readyForUse = Get-ReadyForUse -Classification $classification -WarnThreshold 3
-
     .OUTPUTS
         PSCustomObject with ReadyForUse boolean, FailCount, WarnCount, WarnThreshold.
     #>
@@ -182,22 +152,17 @@ function Get-ReadyForUse {
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [PSCustomObject]$Classification,
-
         [Parameter(Mandatory)]
         [ValidateRange(0, [int]::MaxValue)]
         [int]$WarnThreshold
     )
-
     process {
         try {
             $failCount = $Classification.FailCount
             $warnCount = $Classification.WarnCount
-
             # Calculate ReadyForUse per constitution formula
             $readyForUse = ($failCount -eq 0) -and ($warnCount -le $WarnThreshold)
-
             Write-Verbose "ReadyForUse calculation: FailCount=$failCount, WarnCount=$warnCount, Threshold=$WarnThreshold, Result=$readyForUse"
-
             return [PSCustomObject]@{
                 ReadyForUse = $readyForUse
                 FailCount = $failCount
@@ -220,34 +185,25 @@ function Get-ReadyForUse {
         }
     }
 }
-
 function New-OrchestrationReport {
     <#
     .SYNOPSIS
         Generates orchestration report in JSON and Markdown formats.
-
     .DESCRIPTION
         Creates comprehensive orchestration report with component health status,
         ReadyForUse calculation, and test result details.
-
     .PARAMETER Manifest
         The manifest object used for validation.
-
     .PARAMETER Classification
         Classification object from Get-CriticalityClassification.
-
     .PARAMETER ReadyForUse
         ReadyForUse object from Get-ReadyForUse.
-
     .PARAMETER ExecutionTime
         Total execution time for validation run.
-
     .PARAMETER ArtifactPath
         Path to test execution artifacts.
-
     .EXAMPLE
         $report = New-OrchestrationReport -Manifest $manifest -Classification $classification -ReadyForUse $readyForUse -ExecutionTime $duration
-
     .OUTPUTS
         PSCustomObject with Json and Markdown report strings.
     #>
@@ -257,23 +213,18 @@ function New-OrchestrationReport {
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [PSCustomObject]$Manifest,
-
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [PSCustomObject]$Classification,
-
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [PSCustomObject]$ReadyForUse,
-
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [timespan]$ExecutionTime,
-
         [Parameter()]
         [string]$ArtifactPath
     )
-
     process {
         try {
             # Build report object
@@ -312,30 +263,21 @@ function New-OrchestrationReport {
                     }
                 )
             }
-
             if ($ArtifactPath) {
                 $reportObject.ArtifactPath = $ArtifactPath
             }
-
             # Generate JSON report
             $jsonReport = $reportObject | ConvertTo-Json -Depth 100
-
             # Generate Markdown report
             $mdReport = @"
 # Radar Live Post-Install Skim - Orchestration Report
-
 ## Environment: $($Manifest.EnvironmentName)
-
 **Validation Timestamp:** $($reportObject.ValidationTimestamp)
 **Execution Time:** $($reportObject.ExecutionTimeSeconds)s
 **Ready For Use:** $($ReadyForUse.ReadyForUse -eq $true ? '✅ YES' : '❌ NO')
-
 $(if ($ReadyForUse.Reason) { "**Reason:** $($ReadyForUse.Reason)" })
-
 ---
-
 ## Summary
-
 | Metric | Count |
 |--------|-------|
 | **Total Tests** | $($Classification.TotalCount) |
@@ -344,34 +286,23 @@ $(if ($ReadyForUse.Reason) { "**Reason:** $($ReadyForUse.Reason)" })
 | **Warned (Non-Critical)** | $($Classification.WarnCount) |
 | **Skipped** | $($Classification.SkipCount) |
 | **Warn Threshold** | $($ReadyForUse.WarnThreshold) |
-
 ---
-
 ## Components
-
 $(foreach ($component in $Manifest.ComponentsToDeploy) {
 "- **$($component.ComponentName)** ($($component.Type)) - $(if ($component.Enabled) { 'Enabled' } else { 'Disabled' })"
 })
-
 ---
-
 ## Test Results
-
 | Test Name | Result | Classification | Duration (ms) |
 |-----------|--------|----------------|---------------|
 $(foreach ($detail in $Classification.Details) {
 "| $($detail.TestName) | $($detail.Result) | $($detail.Classification) | $([math]::Round($detail.Duration.TotalMilliseconds, 2)) |"
 })
-
 ---
-
 $(if ($ArtifactPath) { "**Artifacts:** ``$ArtifactPath``" })
-
 *Generated by Radar Live Post-Install Skim*
 "@
-
             Write-Verbose "Orchestration report generated successfully"
-
             return [PSCustomObject]@{
                 Json = $jsonReport
                 Markdown = $mdReport
@@ -384,9 +315,7 @@ $(if ($ArtifactPath) { "**Artifacts:** ``$ArtifactPath``" })
         }
     }
 }
-
 #endregion
-
 # Export module members
 Export-ModuleMember -Function @(
     'Test-IsCriticalTest'
