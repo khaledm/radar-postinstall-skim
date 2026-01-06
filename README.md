@@ -54,9 +54,9 @@ cd radar-postinstall-skim
 # Install Pester 5.0+
 Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -Scope CurrentUser
 # Run all unit tests
-Invoke-Pester -Path ./tests/unit -Output Detailed
+Invoke-Pester -Path ./tests -Output Detailed
 # Run specific test suite
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/IIS.Tests.ps1 -Output Detailed
 ```
 📖 **See [docs/TESTING.md](docs/TESTING.md) for complete testing guide**
 ## Usage Examples
@@ -65,11 +65,11 @@ Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -Output Detailed
 # Load manifest
 $manifest = Get-Content .specify/manifest.json | ConvertFrom-Json
 # Run all US1 checks
-Import-Module ./src/Checks/IIS.psm1
-Import-Module ./src/Checks/SQL.psm1
-Import-Module ./src/Checks/Network.psm1
-Import-Module ./src/Checks/EventLog.psm1
-Import-Module ./src/Core/ResultAggregator.psm1
+# Module imports handled by orchestrator
+# Module imports handled by orchestrator
+# Module imports handled by orchestrator
+# Module imports handled by orchestrator
+# Module imports handled by orchestrator
 $results = @()
 # IIS checks
 $results += Test-IISAppPoolGMSA -Manifest $manifest
@@ -94,7 +94,7 @@ $results | Format-Table CheckName, Status, Message -AutoSize
 ### Example 2: Save and Review Artifacts
 ```powershell
 # Save current scan as artifact
-Import-Module ./src/ArtifactStore.psm1
+# Module imports handled by orchestrator
 $report = @{
     OverallStatus = 'PASS'
     ReadyForUse = $true
@@ -116,7 +116,7 @@ Write-Host "Artifact saved: $($artifactResult.ArtifactPath)"
 ### Example 3: Drift Detection
 ```powershell
 # Create baseline snapshot
-Import-Module ./src/Baselines/Snapshot.psm1
+# Module imports handled by orchestrator
 $baseline = New-BaselineSnapshot -Manifest $manifest
 Save-BaselineSnapshot -Snapshot $baseline -Path .specify/baselines/
 # Later, compare current state to baseline
@@ -130,7 +130,7 @@ if ($comparison.Status -eq 'FAIL') {
 ### Example 4: Component Health Checks
 ```powershell
 # Test component health endpoints
-Import-Module ./src/Checks/Health.psm1
+# Module imports handled by orchestrator
 $healthResult = Test-ComponentHealthChecks -Manifest $manifest
 foreach ($check in $healthResult.Results) {
     $color = switch ($check.Status) {
@@ -144,7 +144,7 @@ foreach ($check in $healthResult.Results) {
 ### Example 5: Generate Component Acceptance Harness
 ```powershell
 # Auto-generate acceptance test script for component
-Import-Module ./src/Harness/ComponentAcceptance.psm1
+# Module imports handled by orchestrator
 $harness = New-ComponentAcceptanceHarness -Manifest $manifest -ComponentName 'WebAPI'
 # Run generated harness
 & $harness.Harnesses[0].HarnessPath -Environment PROD
@@ -155,16 +155,16 @@ $harness = New-ComponentAcceptanceHarness -Manifest $manifest -ComponentName 'We
 # Install Pester
 Install-Module -Name Pester -MinimumVersion 5.0.0 -Force
 # Run all unit tests
-Invoke-Pester -Path ./tests/unit -Output Detailed
+Invoke-Pester -Path ./tests -Output Detailed
 ```
 ### Run Specific Test Suite
 ```powershell
 # Environment readiness tests
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1
+Invoke-Pester -Path ./tests/IIS.Tests.ps1
 # Artifact storage tests
-Invoke-Pester -Path ./tests/unit/Artifact.Tests.ps1
+Invoke-Pester -Path ./tests/Artifact.Tests.ps1
 # Post-change validation tests
-Invoke-Pester -Path ./tests/unit/Drift.Tests.ps1
+Invoke-Pester -Path ./tests/Drift.Tests.ps1
 ```
 ### Linting
 ```powershell
@@ -241,7 +241,7 @@ radar-postinstall-skim/
 2. Review [Tasks](specs/main/tasks.md) for implementation order
 3. Follow [Testing Guide](docs/TESTING.md) for validation
 4. Run linting before commits: `Invoke-ScriptAnalyzer -Path . -Recurse`
-5. Run all tests: `Invoke-Pester -Path ./tests/unit`
+5. Run all tests: `Invoke-Pester -Path ./tests`
 ### Code Standards
 - **PowerShell 7.5+** only
 - **No integration tests** (per constitution)
@@ -266,6 +266,6 @@ For questions or issues:
 5. Open an issue in the GitHub repository
 ---
 **Version**: 1.0.0
-**Last Updated**: November 30, 2025
+**Last Updated**: January 5, 2026
 **PowerShell**: 7.5+
-**Status**: ✅ Phases 1-5 Complete (39/61 tasks)
+**Status**: ⚠️ Phases 1-5: 81% Complete (85/105 tasks) | Phase 6: Pending (20 tasks)

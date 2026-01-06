@@ -11,9 +11,14 @@ This guide provides comprehensive instructions for running tests locally to veri
 ---
 ## Prerequisites
 ### Required Software
+
+**For Development/Contributing:**
 - **PowerShell 7.5+**: Download from [PowerShell GitHub](https://github.com/PowerShell/PowerShell/releases)
 - **Pester 5.0+**: PowerShell testing framework
-- **PSScriptAnalyzer**: PowerShell linting tool
+- **PSScriptAnalyzer**: PowerShell linting tool (development only)
+
+**For Operational Use:**
+Only PowerShell 7.5+ and Pester 5.0+ are required to run the skim on actual servers.
 ### Installation
 ```powershell
 # Install Pester (if not already installed)
@@ -36,12 +41,12 @@ $PSVersionTable.PSVersion
 # Navigate to repository root
 cd C:\path\to\radar-postinstall-skim
 # Run all unit tests
-Invoke-Pester -Path ./tests/unit -Output Detailed
+Invoke-Pester -Path ./tests -Output Detailed
 ```
 ### Run Tests with Coverage Report
 ```powershell
 $config = New-PesterConfiguration
-$config.Run.Path = './tests/unit'
+$config.Run.Path = './tests'
 $config.Output.Verbosity = 'Detailed'
 $config.TestResult.Enabled = $true
 $config.TestResult.OutputPath = './test-results.xml'
@@ -52,38 +57,38 @@ Invoke-Pester -Configuration $config
 ### Core Module Tests
 ```powershell
 # Test RuntimeGuard, RetryPolicy, ResultAggregator, Snapshot
-Invoke-Pester -Path ./tests/unit/Foundational.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Foundational.Tests.ps1 -Output Detailed
 ```
 ### Security and Validation Tests
 ```powershell
 # WARN acknowledgment tests
-Invoke-Pester -Path ./tests/unit/WarnAck.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Validation-Idempotency.Tests.ps1 -Output Detailed
 # Output semantics tests
-Invoke-Pester -Path ./tests/unit/OutputSemantics.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Component.Tests.ps1 -Output Detailed
 ```
 ### Environment Readiness Tests (US1)
 ```powershell
 # All US1 checks (IIS, SQL, Network, EventLog)
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/IIS.Tests.ps1 -Output Detailed
 # Routing check description tests
-Invoke-Pester -Path ./tests/unit/RoutingCheck.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Network.Tests.ps1 -Output Detailed
 ```
 ### Artifact Retention Tests (US2)
 ```powershell
 # Artifact storage, retention, and review
-Invoke-Pester -Path ./tests/unit/Artifact.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Component.Tests.ps1 -Output Detailed
 ```
 ### Drift Detection Tests (US3)
 ```powershell
 # Drift detection and re-scan
-Invoke-Pester -Path ./tests/unit/Drift.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/Validation-Idempotency.Tests.ps1 -Output Detailed
 ```
 ### Run Specific Test Cases
 ```powershell
 # Run only tests matching a specific name
-Invoke-Pester -Path ./tests/unit -FullNameFilter "*FAIL > WARN > PASS*" -Output Detailed
+Invoke-Pester -Path ./tests -FullNameFilter "*FAIL > WARN > PASS*" -Output Detailed
 # Run tests in a specific Describe block
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -FullNameFilter "IIS Checks*" -Output Detailed
+Invoke-Pester -Path ./tests/IIS.Tests.ps1 -FullNameFilter "IIS Checks*" -Output Detailed
 ```
 ---
 ## Test Organization
@@ -92,12 +97,12 @@ Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -FullNameFilter "IIS Checks*" 
 tests/
 └── unit/
     ├── Foundational.Tests.ps1      # Core modules (RuntimeGuard, RetryPolicy, etc.)
-    ├── WarnAck.Tests.ps1           # WARN acknowledgment tracking
-    ├── OutputSemantics.Tests.ps1   # PASS/FAIL/WARN semantics
-    ├── Checks.Tests.ps1            # US1 environment checks
-    ├── RoutingCheck.Tests.ps1      # Routing description validation
-    ├── Artifact.Tests.ps1          # US2 artifact retention
-    └── Drift.Tests.ps1             # US3 drift detection
+    ├── Validation-Idempotency.Tests.ps1           # WARN acknowledgment tracking
+    ├── Component.Tests.ps1   # PASS/FAIL/WARN semantics
+    ├── IIS.Tests.ps1            # US1 environment checks
+    ├── Network.Tests.ps1      # Routing description validation
+    ├── Component.Tests.ps1          # US2 artifact retention
+    └── Validation-Idempotency.Tests.ps1             # US3 drift detection
 ```
 ### Test Naming Convention
 - **File**: `<Module>.Tests.ps1`
@@ -150,7 +155,7 @@ Tests Passed: 5, Failed: 1, Skipped: 0, NotRun: 0
 # Check module path
 Get-Module -Name <ModuleName> -ListAvailable
 # Import manually if needed
-Import-Module ./src/Core/ResultAggregator.psm1 -Force
+# Modules loaded by orchestrator
 ```
 #### Issue: "Pester version mismatch"
 **Solution**: Update Pester to version 5.0+
@@ -164,7 +169,7 @@ Install-Module -Name Pester -Force -Scope CurrentUser
 **Solution**: Verify test file naming convention
 ```powershell
 # Test files must end with .Tests.ps1
-Get-ChildItem -Path ./tests/unit -Filter "*.Tests.ps1"
+Get-ChildItem -Path ./tests -Filter "*.Tests.ps1"
 ```
 #### Issue: "Mock not working"
 **Solution**: Ensure BeforeAll block imports modules
@@ -177,25 +182,25 @@ BeforeAll {
 #### Run with Verbose Output
 ```powershell
 $config = New-PesterConfiguration
-$config.Run.Path = './tests/unit/Checks.Tests.ps1'
+$config.Run.Path = './tests/IIS.Tests.ps1'
 $config.Output.Verbosity = 'Diagnostic'
 Invoke-Pester -Configuration $config
 ```
 #### Run Single Test
 ```powershell
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -FullNameFilter "IIS Checks AppPool validation Detects gMSA identity mismatch"
+Invoke-Pester -Path ./tests/IIS.Tests.ps1 -FullNameFilter "IIS Checks AppPool validation Detects gMSA identity mismatch"
 ```
 #### Enable Debug Output
 ```powershell
 $DebugPreference = 'Continue'
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1
+Invoke-Pester -Path ./tests/IIS.Tests.ps1
 ```
 ---
 ## Test Development Workflow
 ### 1. Run Existing Tests
 ```powershell
 # Verify current state
-Invoke-Pester -Path ./tests/unit -Output Detailed
+Invoke-Pester -Path ./tests -Output Detailed
 ```
 ### 2. Implement Module Logic
 ```powershell
@@ -204,13 +209,13 @@ Invoke-Pester -Path ./tests/unit -Output Detailed
 ```
 ### 3. Update Test Stubs
 ```powershell
-# Edit test file (e.g., tests/unit/Checks.Tests.ps1)
+# Edit test file (e.g., tests/IIS.Tests.ps1)
 # Replace TODO stubs with actual test logic
 ```
 ### 4. Run Updated Tests
 ```powershell
 # Test specific file
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1 -Output Detailed
+Invoke-Pester -Path ./tests/IIS.Tests.ps1 -Output Detailed
 ```
 ### 5. Validate with Linting
 ```powershell
@@ -262,20 +267,20 @@ Enforces:
 .\scripts\run-ci-checks.ps1
 # Or run individually:
 Invoke-ScriptAnalyzer -Path . -Recurse
-Invoke-Pester -Path ./tests/unit
+Invoke-Pester -Path ./tests
 ```
 ---
 ## Performance Testing
 ### Measure Test Execution Time
 ```powershell
 Measure-Command {
-    Invoke-Pester -Path ./tests/unit -Output Quiet
+    Invoke-Pester -Path ./tests -Output Quiet
 }
 ```
 ### Profile Specific Tests
 ```powershell
 $config = New-PesterConfiguration
-$config.Run.Path = './tests/unit/Checks.Tests.ps1'
+$config.Run.Path = './tests/IIS.Tests.ps1'
 $config.Debug.ShowNavigationMarkers = $true
 Invoke-Pester -Configuration $config
 ```
@@ -312,16 +317,16 @@ Invoke-Pester -Configuration $config
 ### Essential Commands
 ```powershell
 # Run all tests
-Invoke-Pester -Path ./tests/unit
+Invoke-Pester -Path ./tests
 # Run specific test file
-Invoke-Pester -Path ./tests/unit/Checks.Tests.ps1
+Invoke-Pester -Path ./tests/IIS.Tests.ps1
 # Run with detailed output
-Invoke-Pester -Path ./tests/unit -Output Detailed
+Invoke-Pester -Path ./tests -Output Detailed
 # Run linting
 Invoke-ScriptAnalyzer -Path . -Recurse
 # Generate test report
 $config = New-PesterConfiguration
-$config.Run.Path = './tests/unit'
+$config.Run.Path = './tests'
 $config.TestResult.Enabled = $true
 $config.TestResult.OutputPath = './test-results.xml'
 Invoke-Pester -Configuration $config
@@ -329,7 +334,7 @@ Invoke-Pester -Configuration $config
 ### Test Execution Matrix
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `Invoke-Pester -Path ./tests/unit` | Run all unit tests | Before commits |
+| `Invoke-Pester -Path ./tests` | Run all unit tests | Before commits |
 | `Invoke-Pester -Path <file>` | Run specific test file | During development |
 | `Invoke-Pester -FullNameFilter <pattern>` | Run matching tests | Debugging specific feature |
 | `Invoke-ScriptAnalyzer -Path .` | Lint all code | Before commits |

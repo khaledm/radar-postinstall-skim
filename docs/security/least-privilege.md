@@ -73,7 +73,7 @@ The skim execution account **MUST** have:
 - **NEVER** use accounts with administrative privileges
 ## Validation Strategy
 ### Automated Scan (T117)
-The `src/Checks/LeastPrivilege.psm1` module implements automated detection:
+The `modules/SecretRedaction/SecretRedaction.psm1 (contains security validation)` module implements automated detection:
 1. **Context Check**: Verify current execution context is not in disallowed roles
 2. **Script Analysis**: Parse all `.psm1` and `.ps1` files for disallowed cmdlets
 3. **AST Inspection**: Use PowerShell AST to detect dynamic command construction

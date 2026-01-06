@@ -23,7 +23,7 @@ cd C:\path\to\radar-postinstall-skim
 ```
 === Radar Live Post-Install Skim ===
 Environment: DEV
-Manifest: ./specs/main/desired-state-manifest.dev.json
+Manifest: .\manifests\desired-state-manifest.dev.json
 Scan Type: Manual
 [Phase 1] Version Validation...
   Status: PASS
@@ -62,9 +62,9 @@ The skim requires **read-only access** to:
 **Note:** The skim follows **least privilege** principles - no admin rights required unless checking privileged event logs.
 ### Environment Manifests
 Create a manifest JSON file for each environment (DEV, UAT, PRD):
-- `specs/main/desired-state-manifest.dev.json` (DEV)
-- `specs/main/desired-state-manifest.uat.json` (UAT)
-- `specs/main/desired-state-manifest.prd.json` (PRD)
+- `manifests/desired-state-manifest.dev.json` (DEV)
+- `manifests/desired-state-manifest.uat.json` (UAT)
+- `manifests/desired-state-manifest.prd.json` (PRD)
 See [Manifest Structure](#manifest-structure) below for format.
 ---
 ## Basic Usage
@@ -207,18 +207,18 @@ Invoke-Item artifacts-prd.csv
 **Solution:**
 ```powershell
 # Check manifest exists
-Test-Path ./specs/main/desired-state-manifest.dev.json
+Test-Path .\manifests\desired-state-manifest.dev.json
 # Create from template
-Copy-Item ./specs/main/desired-state-manifest.dev.json ./specs/main/desired-state-manifest.uat.json
+Copy-Item .\manifests\desired-state-manifest.dev.json .\manifests\desired-state-manifest.uat.json
 ```
 ### Issue: "Environment mismatch"
 **Cause:** `-Environment` parameter doesn't match `EnvironmentName` in manifest.
 **Solution:**
 ```powershell
 # Verify manifest content
-(Get-Content ./specs/main/desired-state-manifest.dev.json | ConvertFrom-Json).EnvironmentName
+(Get-Content .\manifests\desired-state-manifest.dev.json | ConvertFrom-Json).EnvironmentName
 # Ensure they match:
-.\src\Invoke-PostInstallSkim.ps1 -Environment DEV -ManifestPath ./specs/main/desired-state-manifest.dev.json
+.\src\Invoke-PostInstallSkim.ps1 -Environment DEV -ManifestPath .\manifests\desired-state-manifest.dev.json
 ```
 ### Issue: "Access denied" errors
 **Cause:** Insufficient permissions to read IIS config or event logs.
@@ -345,9 +345,9 @@ Start-ScheduledTask -TaskName "Radar Live Post-Install Skim - PRD"
 ### Creating Manifests for UAT/PRD
 ```powershell
 # Copy DEV manifest as template
-Copy-Item ./specs/main/desired-state-manifest.dev.json ./specs/main/desired-state-manifest.uat.json
+Copy-Item .\manifests\desired-state-manifest.dev.json .\manifests\desired-state-manifest.uat.json
 # Edit UAT manifest
-code ./specs/main/desired-state-manifest.uat.json
+code .\manifests\desired-state-manifest.uat.json
 # Update:
 # - EnvironmentName: "UAT"
 # - GMSInUse: "PROD\\SVRPPRRDRLUAT01$"
